@@ -1,14 +1,22 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { isValidObjectId, Model } from 'mongoose';
-import { CreatePokemonDto } from './dto/create-pokemon.dto';
-import { UpdatePokemonDto } from './dto/update-pokemon.dto';
+
 import { Pokemon } from './entities/pokemon.entity';
+import { CreatePokemonDto } from './dto/create-pokemon.dto';
+import { PaginationDto } from 'src/common/dtos/pagination.dto';
+import { UpdatePokemonDto } from './dto/update-pokemon.dto';
 
 @Injectable()
 export class PokemonService {
 
-  constructor(@InjectModel(Pokemon.name) private pokemonModel: Model<Pokemon>) { }
+  private defaultLimit: number;
+
+  constructor(@InjectModel(Pokemon.name) private pokemonModel: Model<Pokemon>,
+    private readonly configService: ConfigService) {
+    this.defaultLimit = this.configService.get<number>('defaultLimit');
+  }
 
   async create(createPokemonDto: CreatePokemonDto) {
     createPokemonDto.name = createPokemonDto.name.toLowerCase();
@@ -22,8 +30,14 @@ export class PokemonService {
 
   }
 
-  async findAll() {
-    return await this.pokemonModel.find();
+  async findAll({ limit = this.defaultLimit, offset = 0 }: PaginationDto) {
+    console.log(limit);
+    console.log(offset);
+    return await this.pokemonModel.find()
+      .limit(limit)
+      .skip(offset)
+      .sort({ no: 1 })
+      .select('-__v');
   }
 
   async findOne(term: string) {
@@ -68,9 +82,9 @@ export class PokemonService {
     // //  const pokemon : Pokemon = await this.findOne(id);
     // //    pokemon.deleteOne();
     //await this.pokemonModel.findByIdAndDelete(id);
-    const result = await this.pokemonModel.deleteOne({_id});
-    if(result.deletedCount === 0) throw new NotFoundException(`Pokemon with id ${_id} doesnt exist!`);
-    
+    const result = await this.pokemonModel.deleteOne({ _id });
+    if (result.deletedCount === 0) throw new NotFoundException(`Pokemon with id ${_id} doesnt exist!`);
+
   }
 
   handleExceptions(error: any) {
